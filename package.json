@@ -10,6 +10,8 @@
     "api-gateway"
   ],
   "dependencies": {
+    "amqplib": "^0.10.7",
+    "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "dayjs": "^1.11.13",
     "dotenv": "^16.5.0",
@@ -19,6 +21,8 @@
     "lodash": "^4.17.21",
     "mongoose": "^8.13.2",
     "nodemon": "^3.1.9",
+    "pg": "^8.14.1",
+    "postgres": "^3.4.5",
     "redis": "^4.7.0",
     "winston": "^3.17.0",
     "winston-daily-rotate-file": "^5.0.0"
