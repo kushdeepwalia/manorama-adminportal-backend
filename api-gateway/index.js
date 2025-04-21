@@ -9,14 +9,14 @@ app.use('/auth',
   })
 );
 
-app.use('/projects',
+app.use('/project',
   createProxyMiddleware({
     target: 'http://localhost:4400',
     changeOrigin: true
   })
 );
 
-app.use('/models',
+app.use('/model',
   createProxyMiddleware({
     target: 'http://localhost:4800',
     changeOrigin: true
@@ -38,7 +38,7 @@ app.use('/admin',
 );
 
 app.use("/", (req, res) => {
-  res.status(200).json({ messgage: `Service running on ${PORT}` })
+  res.status(200).json({ message: `Service running on ${PORT}` })
 })
 
 const PORT = process.env.PORT || 5000;
