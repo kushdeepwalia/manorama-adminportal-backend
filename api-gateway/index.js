@@ -23,7 +23,7 @@ app.use('/models',
   })
 );
 
-app.use('/organizations',
+app.use('/org',
   createProxyMiddleware({
     target: 'http://localhost:5200',
     changeOrigin: true

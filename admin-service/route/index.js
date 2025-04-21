@@ -1,5 +1,4 @@
 const express = require("express");
-const { OAuth2Client } = require("google-auth-library")
 const jwt = require("jsonwebtoken")
 const authVerifyToken = require("../../middlewares/authVerifyToken/");
 const pool = require("../../db/pool");
@@ -10,9 +9,7 @@ const PORT = process.env.PORT || 5001;
 
 const router = express.Router();
 
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
-router.post("/register", async (req, res, next) => {
+router.post("/register", authVerifyToken, async (req, res, next) => {
   try {
     if (req.body?.name === undefined || req.body?.email === undefined || req.body?.pass === undefined || req.body?.tenant_id === undefined || req.body?.phone_no === undefined) {
       res.statusMessage = "Missing Fields";
@@ -60,8 +57,36 @@ router.post("/register", async (req, res, next) => {
     }
 
   } catch (error) {
-    console.error("Registration Error:", error);
-    res.status(500).json({ message: "Internal Server Error", error });
+    res.statusMessage = "Internal Server Error";
+    res.status(400).json({ error });
+  }
+})
+
+router.get("/getAll", authVerifyToken, async (req, res, next) => {
+  try {
+    const { email } = req.user;
+
+    const { rows: user, rowCount: userCount } = await eventBus.publish('AdminCheckUserEmail', { email }, Date.now().toString());
+
+    if (userCount > 0) {
+      const { tenant_id } = user[0]
+      const { rows: admins, rowCount: adminCount } = await pool.query("SELECT id, name, email, phone_no, status, google_sub_id, profile_pic, tenant_id, updated_at, created_at, last_logged_in FROM mst_admin WHERE tenant_id >= $1 ORDER BY tenant_id", [tenant_id]);
+
+      if (adminCount > 0) {
+        res.statusMessage = "Fetched Records";
+        return res.status(200).json({ admins });
+      }
+
+      res.statusMessage = "No Data";
+      return res.status(202).send();
+    }
+
+    res.statusMessage = "Account doesn't exists";
+    return res.status(409).send();
+  }
+  catch (error) {
+    res.statusMessage = "Internal Server error";
+    res.status(404).json({ error });
   }
 })
 
