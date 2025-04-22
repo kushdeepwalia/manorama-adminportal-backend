@@ -19,16 +19,15 @@ router.post("/register", authVerifyToken, async (req, res, next) => {
     const { rows: user, rowCount: userCount } = await eventBus.publish('AdminCheckUserEmail', { email }, Date.now().toString());
 
     if (userCount > 0) {
-      const { tenant_id } = user[0];
-
+      const tenant_id = Number(user[0].tenant_id);
       if (tenant_id !== 1) {
         res.statusMessage = "Forbidden."
-        return res.status(403).send();
+        return res.status(403).json({ tenant_id });
       }
 
       const { rows: parentOrg, rowCount: parentOrgCount } = await pool.query("SELECT * from mst_organization WHERE tenant_id = $1", [parent_tenant_id]);
 
-      if ((orgCount > 0)) {
+      if ((parentOrgCount > 0)) {
         const { level: parentLevel } = parentOrg[0];
         const { rows: newOrg, rowCount: newOrgCount } = await pool.query("INSERT INTO mst_organization(name, allowed_inputs, allowed_outputs, color_theme, level, parent_tenant_id) values ($1, $2, $3, $4, $5, $6) RETURNING *", [name, allowed_inputs, allowed_outputs, color_theme, (parentLevel - 1), parent_tenant_id]);
 
