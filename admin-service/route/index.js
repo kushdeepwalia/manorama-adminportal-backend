@@ -20,8 +20,7 @@ router.post("/register", authVerifyToken, async (req, res, next) => {
     const { rows: user, rowCount: userCount } = await eventBus.publish('AdminCheckUserEmail', { email }, Date.now().toString());
 
     if (userCount > 0) {
-      const { tenant_id } = user[0];
-
+      const tenant_id = Number(user[0].tenant_id);
       if (tenant_id !== 1) {
         res.statusMessage = "Forbidden."
         return res.status(403).send();
@@ -56,7 +55,7 @@ router.post("/register", authVerifyToken, async (req, res, next) => {
         eventBus.publish('AdminSendEmailToNewUser', {
           mailOptions: {
             from: 'kushdeepwalia.iit@gmail.com', // Sender address
-            to: email, // List of recipients
+            to: newEmailToRegister, // List of recipients
             subject: 'Onboarding: ' + name, // Subject line
             // text: 'Hello, this is a test email!', // Plain text body
             html: `<span>Hi! Click below to log in and set your password. The link is valid for 30 minutes only. So: </span><a href="${magicLink}">Log In</a><span> now.</span>`

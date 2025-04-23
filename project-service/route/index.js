@@ -71,7 +71,7 @@ router.get("/getAll", authVerifyToken, async (req, res, next) => {
 
       const tenantids = await eventBus.publish('OrgGetTenantIds', { tenant_id }, Date.now().toString());
 
-      const { rows: projects, rowCount: projectCount } = await pool.query("SELECT p.* FROM mst_project p WHERE p.tenant_id = ANY($2) OR $1 = 1 OR p.id IN (SELECT project_id FROM txn_org_project WHERE tenant_id = $1) ORDER BY id", [tenant_id, tenantids]);
+      const { rows: projects, rowCount: projectCount } = await pool.query("SELECT p.* FROM mst_project p WHERE p.tenant_id = ANY($2) OR $1 = 1 OR p.id IN (SELECT project_id FROM txn_org_project WHERE tenant_id = ANY($2)) ORDER BY id", [tenant_id, tenantids]);
 
       // const { rows: projects, rowCount: projectCount } = await pool.query("SELECT * FROM mst_project WHERE tenant_id = ANY($1) ORDER BY tenant_id", [tenantids]);
 
