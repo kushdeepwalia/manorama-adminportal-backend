@@ -64,7 +64,7 @@ router.get("/getAll", authVerifyToken, async (req, res, next) => {
 
       const tenantids = await eventBus.publish('OrgGetTenantIds', { tenant_id }, Date.now().toString());
 
-      const { rows: orgs, rowCount: orgCount } = await pool.query("SELECT tenant_id, name, allowed_inputs, allowed_outputs, created_at, updated_at, color_theme FROM mst_organization WHERE tenant_id = ANY($1) ORDER BY tenant_id", [tenantids]);
+      const { rows: orgs, rowCount: orgCount } = await pool.query("SELECT org.tenant_id, org.name as org_name, org.color_theme,org.allowed_inputs, org.allowed_outputs, org.parent_tenant_id, o.name as parent_org_name, org.created_at, org.updated_at FROM mst_organization org JOIN mst_organization o ON org.parent_tenant_id = o.tenant_id WHERE org.tenant_id = ANY($1) ORDER BY tenant_id", [tenantids]);
 
       if (orgCount > 0) {
         res.statusMessage = "Fetched Records";
