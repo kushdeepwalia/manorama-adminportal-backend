@@ -71,7 +71,7 @@ router.get("/getAll", authVerifyToken, async (req, res, next) => {
 
       const tenantids = await eventBus.publish('OrgGetTenantIds', { tenant_id }, Date.now().toString());
 
-      const { rows: projects, rowCount: projectCount } = await pool.query("SELECT p.id, p.name, p.image, p.allowed_inputs, p.allowed_outputs, p.tenant_id as org_tenant_id, o.name as org_name, p.created_at, p.updated_at FROM mst_project p JOIN mst_organization o ON o.tenant_id = p.tenant_id WHERE p.tenant_id = ANY($2) OR $1 = 1 OR p.id IN (SELECT project_id FROM txn_org_project WHERE tenant_id = ANY($2)) ORDER BY p.updated_at", [tenant_id, tenantids]);
+      const { rows: projects, rowCount: projectCount } = await pool.query("SELECT p.id, p.name, p.image, p.allowed_inputs, p.allowed_outputs, p.tenant_id as org_tenant_id, o.name as org_name, p.created_at, p.updated_at FROM mst_project p JOIN mst_organization o ON o.tenant_id = p.tenant_id WHERE p.tenant_id = ANY($2) OR $1 = 1 OR p.id IN (SELECT project_id FROM txn_org_project WHERE tenant_id = ANY($2)) ORDER BY p.updated_at DESC", [tenant_id, tenantids]);
 
       // const { rows: projects, rowCount: projectCount } = await pool.query("SELECT * FROM mst_project WHERE tenant_id = ANY($1) ORDER BY tenant_id", [tenantids]);
 
