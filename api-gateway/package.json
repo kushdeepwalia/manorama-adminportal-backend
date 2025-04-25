@@ -5,8 +5,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "nodemon index.js",
-    "restartServer": "plink.exe -ssh root@119.18.48.149 -pw CSCAnganwadi@12 -batch \"cd manorama-adminportal-backend && git pull && pm2 restart all\"",
-    "post": "cd ../ && git add . && git commit -m \"Changes Made\" && git push && npm run restartServer"
+    "post": "cd ../ && git add . && git commit -m \"Changes Made\" && git push && npm run restartServer",
+    "restartServer": "plink.exe -ssh root@119.18.48.149 -pw CSCAnganwadi@12 -batch \"cd manorama-adminportal-backend && git pull && pm2 restart all\""
   },
   "keywords": [],
   "author": "",
