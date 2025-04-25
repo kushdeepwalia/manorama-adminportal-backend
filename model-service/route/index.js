@@ -30,9 +30,9 @@ router.post("/register", authVerifyToken, async (req, res, next) => {
       return res.status(404).send();
     }
 
-    const { rows: projectAccess, rowCount: projectAccessCount } = await eventBus.publish('ProjectCheckUserAccess', { project_id, userId: user[0].id }, Date.now().toString());
+    const query = await eventBus.publish('ProjectCheckUserAccess', { project_id, userId: user[0].id }, Date.now().toString());
 
-    if (projectAccessCount === 0) {
+    if (!query) {
       res.statusMessage = "Unauthorized.";
       return res.status(401).send();
     }
@@ -66,11 +66,11 @@ router.get("/getAll", authVerifyToken, async (req, res, next) => {
 
       const tenantids = await eventBus.publish('OrgGetTenantIds', { tenant_id }, Date.now().toString());
 
-      const { rows: models, rowCount: modelCount } = await pool.query("SELECT a.id AS admin_id, a.name AS name, a.email AS email, a.phone_no AS phone_no, a.status AS profile_status, a.google_sub_id AS google_sub_id, a.profile_pic AS profile_pic, a.last_logged_in AS last_logged_in, a.tenant_id AS org_tenant_id, o.name AS org_name, a.created_at AS created_at, a.updated_at AS updated_at FROM mst_admin a JOIN mst_organization o ON a.tenant_id = o.tenant_id WHERE a.tenant_id = ANY($1) ORDER BY a.tenant_id", [tenantids]);
+      const { rows: models, rowCount: modelCount } = await pool.query("SELECT m.id, m.object_name, m.marker, m.project_id, m.dynamo_project_id, m.dynamo_project_name, m.file_name, m.tenant_id, m.created_at, m.updated_at FROM mst_model m JOIN mst_project p ON m.project_id = p.id WHERE m.tenant_id = ANY($1) ORDER BY m.tenant_id", [tenantids]);
 
       if (adminCount > 0) {
         res.statusMessage = "Fetched Records";
-        return res.status(200).json({ admins });
+        return res.status(200).json({ models });
       }
 
       res.statusMessage = "No Data";
