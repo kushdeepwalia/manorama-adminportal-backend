@@ -68,7 +68,7 @@ router.get("/getAll", authVerifyToken, async (req, res, next) => {
 
       const { rows: models, rowCount: modelCount } = await pool.query("SELECT m.id, m.object_name, m.marker, m.project_id, m.dynamo_project_id, m.dynamo_project_name, m.file_name, m.tenant_id, m.created_at, m.updated_at FROM mst_model m JOIN mst_project p ON m.project_id = p.id WHERE m.tenant_id = ANY($1) ORDER BY m.tenant_id", [tenantids]);
 
-      if (adminCount > 0) {
+      if (modelCount > 0) {
         res.statusMessage = "Fetched Records";
         return res.status(200).json({ models });
       }
