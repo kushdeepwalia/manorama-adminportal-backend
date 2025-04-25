@@ -22,13 +22,19 @@ router.get("/login", async (req, res, next) => {
 
     const { id, email } = jwt.verify(token, process.env.JWT_SECRET)
     console.log(id, email)
+
+    if (!id || !email) {
+      return res.status(404).json({ message: "token expired." })
+    }
+
+    const query = await pool.query("SELECT id, google_sub_id FROM mst_admin WHERE email = $1", [email]);
     const authToken = jwt.sign(
       { id, email },
       process.env.JWT_SECRET,
       { expiresIn: "2d" }
     );
 
-    res.redirect(`https://manorama-adminportal.vercel.app/?auth=${authToken}`);
+    res.redirect(`https://manorama-adminportal.vercel.app/?auth=${authToken}&tenant=${query.rows[0].tenant_id}`);
   }
 })
 
