@@ -28,7 +28,7 @@ router.get("/login", async (req, res, next) => {
       { expiresIn: "2d" }
     );
 
-    res.redirect(`http://localhost:2000/?auth=${authToken}`);
+    res.redirect(`https://manorama-adminportal.vercel.app/?auth=${authToken}`);
   }
 })
 

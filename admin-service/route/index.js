@@ -48,7 +48,7 @@ router.post("/register", authVerifyToken, async (req, res, next) => {
         { expiresIn: "30m" }
       );
 
-      const magicLink = `http://localhost:2000/auth/login?token=${token}`;
+      const magicLink = `https://manorama.adminportal.anganwaditest.co.in/auth/login?token=${token}`;
 
       if (rowCount > 0) {
         res.statusMessage = "User registered.";
