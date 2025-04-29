@@ -110,7 +110,7 @@ router.get("/getAll", authVerifyToken, async (req, res, next) => {
   }
 })
 
-router.put("/modifiy/:id", authVerifyToken, async (req, res, next) => {
+router.put("/modify/:id", authVerifyToken, async (req, res, next) => {
   try {
     if (!req.params.id) {
       res.statusMessage = "Missing Id";
