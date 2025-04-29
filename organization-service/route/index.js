@@ -143,7 +143,7 @@ router.put("/modify/:id", authVerifyToken, async (req, res, next) => {
       if ((parentOrgCount > 0)) {
         const { level: parentLevel } = parentOrg[0];
 
-        const { rows: modifiedOrg, rowCount: modifiedOrgCount } = await pool.query("UPDATE mst_organization SET name = $1, allowed_inputs = $2, allowed_outputs = $3, color_theme = $4, level = $5, parent_tenant_id = $6 updated_at = $8 WHERE tenant_id = $7 RETURNING *", [name, allowed_inputs, allowed_outputs, color_theme, (parentLevel - 1), parent_tenant_id, id, (new Date()).toISOString()]);
+        const { rows: modifiedOrg, rowCount: modifiedOrgCount } = await pool.query("UPDATE mst_organization SET name = $1, allowed_inputs = $2, allowed_outputs = $3, color_theme = $4, level = $5, parent_tenant_id = $6, updated_at = $8 WHERE tenant_id = $7 RETURNING *", [name, allowed_inputs, allowed_outputs, color_theme, (parentLevel - 1), parent_tenant_id, id, (new Date()).toISOString()]);
 
         if (!(modifiedOrgCount > 0)) {
           console.error("Error modifying organization.");
