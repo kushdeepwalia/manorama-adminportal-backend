@@ -110,6 +110,128 @@ router.get("/getAll", authVerifyToken, async (req, res, next) => {
   }
 })
 
+router.put("/modifiy/:id", authVerifyToken, async (req, res, next) => {
+  try {
+    if (!req.params.id) {
+      res.statusMessage = "Missing Id";
+      return res.status(400).send();
+    }
+    if (req.body?.name === undefined || req.body?.email === undefined || req.body?.pass === undefined || req.body?.tenant_id === undefined || req.body?.phone_no === undefined) {
+      res.statusMessage = "Missing Fields";
+      return res.status(400).send();
+    }
+
+    const { id } = req.params;
+    const { email } = req.user;
+
+    const { rows: user, rowCount: userCount } = await eventBus.publish('AdminCheckUserEmail', { email }, Date.now().toString());
+
+    if (userCount > 0) {
+      const tenant_id = Number(user[0].tenant_id);
+
+      if (tenant_id !== 1) {
+        res.statusMessage = "Forbidden."
+        return res.status(403).send();
+      }
+
+      const { name, email: newEmailToRegister, pass, tenant_id: newOrganizationId, phone_no } = req.body;
+
+      const { rows, rowCount } = await pool.query("SELECT 1 FROM mst_admin WHERE id = $1", [id]);
+
+      console.log(rows);
+
+      if (rowCount === 0) {
+        res.statusMessage = "Account doesn't exists";
+        return res.status(404).send();
+      }
+
+      const hashedpass = await password.hash(pass)
+      console.log(hashedpass);
+
+      const { rows: users, rowCount: modifiedUserCount } = await pool.query("UPDATE mst_admin SET name = $1, email = $2, password = $3, tenant_id = $4, phone_no = $5, updated_at = $7 WHERE id = $6 RETURNING id, name, email, phone_no, status, google_sub_id, profile_pic, tenant_id, updated_at, created_at, last_logged_in", [name, newEmailToRegister, hashedpass, newOrganizationId, phone_no, id, (new Date()).toISOString()]);
+
+      if (modifiedUserCount === 0) {
+        console.error("Error modifying admin.");
+        res.statusMessage = "Error modifying admin."
+        return res.status(500).send();
+      }
+
+      const token = jwt.sign(
+        { id: users[0].id, email: newEmailToRegister },
+        process.env.JWT_SECRET,
+        { expiresIn: "30m" }
+      );
+
+      const magicLink = `https://manorama.adminportal.anganwaditest.co.in/auth/login?token=${token}`;
+
+      if (modifiedUserCount > 0) {
+        res.statusMessage = "User registered.";
+        eventBus.publish('AdminSendEmailToNewUser', {
+          mailOptions: {
+            from: 'kushdeepwalia.iit@gmail.com', // Sender address
+            to: newEmailToRegister, // List of recipients
+            subject: 'Profile details changed: ' + name, // Subject line
+            html: `<span>Hi! Click below to log in and set your password. The link is valid for 30 minutes only. So: </span><a href="${magicLink}">Log In</a><span> now.</span>`
+          }
+        }).catch((error) => {
+          console.log(error)
+          res.statusMessage = "Error in sending email.";
+          return res.status(500).json({ error });
+        })
+        res.statusMessage = "Data Fetched";
+        return res.status(201).json({ user: users[0] });
+      }
+
+      res.statusMessage = "Account doesn't exists";
+      return res.status(404).send();
+
+    }
+
+  } catch (error) {
+    res.statusMessage = "Internal Server error";
+    res.status(500).json({ error });
+  }
+})
+
+router.delete("/delete/:id", authVerifyToken, async (req, res, next) => {
+  try {
+
+    if (!req.params.id) {
+      res.statusMessage = "Missing Id";
+      return res.status(400).send();
+    }
+    const { id } = req.params;
+    const { email } = req.user;
+
+    const { rows: user, rowCount: userCount } = await eventBus.publish('AdminCheckUserEmail', { email }, Date.now().toString());
+
+    if (userCount > 0) {
+      const tenant_id = Number(user[0].tenant_id);
+
+      if (tenant_id !== 1) {
+        res.statusMessage = "Forbidden."
+        return res.status(403).json({ tenant_id });
+      }
+
+      const { rows: deletedAdmin, rowCount: deletedAdminCount } = await pool.query("DELETE FROM mst_admin WHERE id = $1 RETURNING *", [id]);
+
+      if (deletedAdminCount === 0) {
+        res.statusMessage = "Admin doesn't exists";
+        return res.status(404).send();
+      }
+
+      return res.status(200).json({ deletedAdmin });
+    }
+
+    res.statusMessage = "Account doesn't exists";
+    return res.status(404).send();
+
+  } catch (error) {
+    res.statusMessage = "Internal Server error";
+    res.status(500).json({ error });
+  }
+})
+
 router.all("/", (req, res, next) => {
   res.status(200).json({ message: `Service running on ${PORT}` })
 })

@@ -131,12 +131,19 @@ router.put("/modify/:id", authVerifyToken, async (req, res, next) => {
         return res.status(403).json({ tenant_id });
       }
 
+      const { rows, rowCount } = await pool.query("SELECT 1 FROM mst_organization WHERE tenant_id = $1", [id]);
+
+      if (rowCount === 0) {
+        res.statusMessage = "Organization doesn't exists";
+        return res.status(404).send();
+      }
+
       const { rows: parentOrg, rowCount: parentOrgCount } = await pool.query("SELECT * from mst_organization WHERE tenant_id = $1", [parent_tenant_id]);
 
       if ((parentOrgCount > 0)) {
         const { level: parentLevel } = parentOrg[0];
 
-        const { rows: modifiedOrg, rowCount: modifiedOrgCount } = await pool.query("UPDATE mst_organization SET name = $1, allowed_inputs = $2, allowed_outputs = $3, color_theme = $4, level = $5, parent_tenant_id = $6 WHERE tenant_id = $7 RETURNING *", [name, allowed_inputs, allowed_outputs, color_theme, (parentLevel - 1), parent_tenant_id, id]);
+        const { rows: modifiedOrg, rowCount: modifiedOrgCount } = await pool.query("UPDATE mst_organization SET name = $1, allowed_inputs = $2, allowed_outputs = $3, color_theme = $4, level = $5, parent_tenant_id = $6 updated_at = $8 WHERE tenant_id = $7 RETURNING *", [name, allowed_inputs, allowed_outputs, color_theme, (parentLevel - 1), parent_tenant_id, id, (new Date()).toISOString()]);
 
         if (!(modifiedOrgCount > 0)) {
           console.error("Error modifying organization.");
@@ -147,7 +154,7 @@ router.put("/modify/:id", authVerifyToken, async (req, res, next) => {
         return res.status(200).json({ modifiedOrg });
       }
 
-      res.statusMessage = "Organization doesn't exists";
+      res.statusMessage = "Parent Organization doesn't exists";
       return res.status(404).send();
     }
 
