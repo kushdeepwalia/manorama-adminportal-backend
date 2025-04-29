@@ -149,7 +149,7 @@ router.put("/modify/:id", authVerifyToken, async (req, res, next) => {
           SELECT 
             CASE
               WHEN p.tenant_id = $2 THEN 'admin'
-              ELSE top.access_role
+              ELSE top.access
             END AS "accessRole"
           FROM 
             mst_project p
