@@ -166,7 +166,7 @@ router.put("/modify/:id", authVerifyToken, async (req, res, next) => {
         return res.status(403).json({ tenant_id });
       }
 
-      const { rows: project, rowCount: projectCount } = await pool.query("WITH modified_project as (UPDATE mst_project SET name = $1, tenant_id = $2, allowed_inputs = $3, allowed_outputs = $4, updated_at = $6 WHERE id = $5 RETURNING *) SELECT mp.* o.name as org_name FROM modified_project mp JOIN mst_organization o ON mp.tenant_id = o.tenant_id", [name, project_tenant_id, allowed_inputs, allowed_outputs, id, (new Date()).toISOString()])
+      const { rows: project, rowCount: projectCount } = await pool.query("WITH modified_project as (UPDATE mst_project SET name = $1, tenant_id = $2, allowed_inputs = $3, allowed_outputs = $4, updated_at = $6 WHERE id = $5 RETURNING *) SELECT mp.*, o.name as org_name FROM modified_project mp JOIN mst_organization o ON mp.tenant_id = o.tenant_id", [name, project_tenant_id, allowed_inputs, allowed_outputs, id, (new Date()).toISOString()])
 
       if (!(projectCount > 0)) {
         console.error("Error modifying project");
