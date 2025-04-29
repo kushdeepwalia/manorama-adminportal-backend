@@ -27,7 +27,7 @@ router.get("/login", async (req, res, next) => {
       return res.status(404).json({ message: "token expired." })
     }
 
-    const query = await pool.query("SELECT id, google_sub_id FROM mst_admin WHERE email = $1", [email]);
+    const query = await pool.query("SELECT id, google_sub_id, tenant_id FROM mst_admin WHERE email = $1", [email]);
     const authToken = jwt.sign(
       { id, email },
       process.env.JWT_SECRET,
