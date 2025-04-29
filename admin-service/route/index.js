@@ -145,41 +145,71 @@ router.put("/modifiy/:id", authVerifyToken, async (req, res, next) => {
         return res.status(404).send();
       }
 
-      const hashedpass = await password.hash(pass)
-      console.log(hashedpass);
+      if (pass === "noChange") {
+        const { rows: users, rowCount: modifiedUserCount } = await pool.query("UPDATE mst_admin SET name = $1, email = $2, tenant_id = $3, phone_no = $4, updated_at = $6 WHERE id = $5 RETURNING id, name, email, phone_no, status, google_sub_id, profile_pic, tenant_id, updated_at, created_at, last_logged_in", [name, newEmailToRegister, newOrganizationId, phone_no, id, (new Date()).toISOString()]);
 
-      const { rows: users, rowCount: modifiedUserCount } = await pool.query("UPDATE mst_admin SET name = $1, email = $2, password = $3, tenant_id = $4, phone_no = $5, updated_at = $7 WHERE id = $6 RETURNING id, name, email, phone_no, status, google_sub_id, profile_pic, tenant_id, updated_at, created_at, last_logged_in", [name, newEmailToRegister, hashedpass, newOrganizationId, phone_no, id, (new Date()).toISOString()]);
+        if (modifiedUserCount === 0) {
+          console.error("Error modifying admin.");
+          res.statusMessage = "Error modifying admin."
+          return res.status(500).send();
+        }
+        const token = jwt.sign(
+          { id: users[0].id, email: newEmailToRegister },
+          process.env.JWT_SECRET,
+          { expiresIn: "30m" }
+        );
 
-      if (modifiedUserCount === 0) {
-        console.error("Error modifying admin.");
-        res.statusMessage = "Error modifying admin."
-        return res.status(500).send();
+        const magicLink = `https://manorama.adminportal.anganwaditest.co.in/auth/login?token=${token}`;
+
+        if (modifiedUserCount > 0) {
+          res.statusMessage = "User registered.";
+          eventBus.publish('AdminSendEmailToNewUser', {
+            mailOptions: {
+              from: 'kushdeepwalia.iit@gmail.com', // Sender address
+              to: newEmailToRegister, // List of recipients
+              subject: 'Profile details changed: ' + name, // Subject line
+              html: `<span>Hi! Click below to log in and set your password. The link is valid for 30 minutes only. So: </span><a href="${magicLink}">Log In</a><span> now.</span>`
+            }
+          }).catch((error) => {
+            console.log(error)
+            res.statusMessage = "Error in sending email.";
+            return res.status(500).json({ error });
+          })
+          res.statusMessage = "Data Fetched";
+          return res.status(201).json({ user: users[0] });
+        }
       }
+      else {
+        const hashedpass = await password.hash(pass)
+        console.log(hashedpass);
 
-      const token = jwt.sign(
-        { id: users[0].id, email: newEmailToRegister },
-        process.env.JWT_SECRET,
-        { expiresIn: "30m" }
-      );
+        const { rows: usersWithPass, rowCount: modifiedUserWithPassCount } = await pool.query("UPDATE mst_admin SET name = $1, email = $2, password = $3, tenant_id = $4, phone_no = $5, updated_at = $7 WHERE id = $6 RETURNING id, name, email, phone_no, status, google_sub_id, profile_pic, tenant_id, updated_at, created_at, last_logged_in", [name, newEmailToRegister, hashedpass, newOrganizationId, phone_no, id, (new Date()).toISOString()]);
 
-      const magicLink = `https://manorama.adminportal.anganwaditest.co.in/auth/login?token=${token}`;
+        const token = jwt.sign(
+          { id: usersWithPass[0].id, email: newEmailToRegister },
+          process.env.JWT_SECRET,
+          { expiresIn: "30m" }
+        );
 
-      if (modifiedUserCount > 0) {
-        res.statusMessage = "User registered.";
-        eventBus.publish('AdminSendEmailToNewUser', {
-          mailOptions: {
-            from: 'kushdeepwalia.iit@gmail.com', // Sender address
-            to: newEmailToRegister, // List of recipients
-            subject: 'Profile details changed: ' + name, // Subject line
-            html: `<span>Hi! Click below to log in and set your password. The link is valid for 30 minutes only. So: </span><a href="${magicLink}">Log In</a><span> now.</span>`
-          }
-        }).catch((error) => {
-          console.log(error)
-          res.statusMessage = "Error in sending email.";
-          return res.status(500).json({ error });
-        })
-        res.statusMessage = "Data Fetched";
-        return res.status(201).json({ user: users[0] });
+        const magicLink = `https://manorama.adminportal.anganwaditest.co.in/auth/login?token=${token}`;
+
+        if (modifiedUserWithPassCount > 0) {
+          res.statusMessage = "User registered.";
+          eventBus.publish('AdminSendEmailToNewUser', {
+            mailOptions: {
+              from: 'kushdeepwalia.iit@gmail.com', // Sender address
+              to: newEmailToRegister, // List of recipients
+              subject: 'Profile details changed: ' + name, // Subject line
+              html: `<span>Hi! Click below to log in and set your password. The link is valid for 30 minutes only. So: </span><a href="${magicLink}">Log In</a><span> now.</span>`
+            }
+          }).catch((error) => {
+            console.log(error)
+            res.statusMessage = "Error in sending email.";
+            return res.status(500).json({ error });
+          })
+          res.statusMessage = "Data Fetched";
+          return res.status(201).json({ user: usersWithPass[0] });
+        }
       }
 
       res.statusMessage = "Account doesn't exists";
