@@ -175,6 +175,12 @@ router.delete("/delete/:id", authVerifyToken, async (req, res, next) => {
       return res.status(400).send();
     }
     const { id } = req.params;
+
+    if (id === 1) {
+      res.statusMessage = "Bad Request";
+      return res.status(400).json({ id });
+    }
+
     const { email } = req.user;
 
     const { rows: user, rowCount: userCount } = await eventBus.publish('AdminCheckUserEmail', { email }, Date.now().toString());

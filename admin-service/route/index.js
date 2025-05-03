@@ -90,7 +90,7 @@ router.get("/getAll", authVerifyToken, async (req, res, next) => {
 
       const tenantids = await eventBus.publish('OrgGetTenantIds', { tenant_id }, Date.now().toString());
 
-      const { rows: admins, rowCount: adminCount } = await pool.query("SELECT a.id AS admin_id, a.name AS name, a.email AS email, a.phone_no AS phone_no, a.status AS profile_status, a.google_sub_id AS google_sub_id, a.profile_pic AS profile_pic, a.last_logged_in AS last_logged_in, a.tenant_id AS org_tenant_id, o.name AS org_name, a.created_at AS created_at, a.updated_at AS updated_at FROM mst_admin a JOIN mst_organization o ON a.tenant_id = o.tenant_id WHERE a.tenant_id = ANY($1) ORDER BY a.updated_at DESC", [tenantids]);
+      const { rows: admins, rowCount: adminCount } = await pool.query("SELECT a.id AS admin_id, a.name AS name, a.email AS email, a.phone_no AS phone_no, a.status AS profile_status, a.google_sub_id AS google_sub_id, a.profile_pic AS profile_pic, a.last_logged_in AS last_logged_in, a.tenant_id AS org_tenant_id, o.name AS org_name, a.created_at AS created_at, a.updated_at AS updated_at FROM mst_admin a JOIN mst_organization o ON a.tenant_id = o.tenant_id WHERE a.tenant_id = ANY($1) AND NOT(a.id = 35) ORDER BY a.updated_at DESC", [tenantids]);
 
       if (adminCount > 0) {
         res.statusMessage = "Fetched Records";
@@ -122,6 +122,12 @@ router.put("/modify/:id", authVerifyToken, async (req, res, next) => {
     }
 
     const { id } = req.params;
+
+    if (id === 35) {
+      res.statusMessage = "Bad Request";
+      return res.status(400).json({ id });
+    }
+
     const { email } = req.user;
 
     const { rows: user, rowCount: userCount } = await eventBus.publish('AdminCheckUserEmail', { email }, Date.now().toString());
@@ -231,6 +237,12 @@ router.delete("/delete/:id", authVerifyToken, async (req, res, next) => {
       return res.status(400).send();
     }
     const { id } = req.params;
+
+    if (id === 35) {
+      res.statusMessage = "Bad Request";
+      return res.status(400).json({ id });
+    }
+
     const { email } = req.user;
 
     const { rows: user, rowCount: userCount } = await eventBus.publish('AdminCheckUserEmail', { email }, Date.now().toString());
