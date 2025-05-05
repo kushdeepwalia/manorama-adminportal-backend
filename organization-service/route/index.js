@@ -73,6 +73,7 @@ router.get("/getAll", authVerifyToken, async (req, res, next) => {
           org.color_theme, 
           org.allowed_inputs, 
           org.allowed_outputs, 
+          org.level
           org.parent_tenant_id, 
           CASE 
             WHEN org.tenant_id = 1 THEN NULL
