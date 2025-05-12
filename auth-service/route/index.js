@@ -144,7 +144,7 @@ router.put("/modifypass", authVerifyToken, async (req, res, next) => {
     if (userCount > 0) {
       const hashedpass = await password.hash(pass);
 
-      const { rows: updatedUser, rowCount: updatedUserCount } = await pool.query("UPDATE mst_admin SET pass = $1, last_logged_in = $2 WHERE email = $3 RETURNING id, name, email, phone_no, status, google_sub_id, profile_pic, tenant_id, updated_at, created_at, last_logged_in", [hashedpass, (new Date()).toISOString(), email])
+      const { rows: updatedUser, rowCount: updatedUserCount } = await pool.query("UPDATE mst_admin SET password = $1, last_logged_in = $2 WHERE email = $3 RETURNING id, name, email, phone_no, status, google_sub_id, profile_pic, tenant_id, updated_at, created_at, last_logged_in", [hashedpass, (new Date()).toISOString(), email])
 
       if (updatedUserCount > 0) {
         // Generate JWT Token for session
