@@ -131,6 +131,42 @@ router.post("/login", async (req, res, next) => {
   }
 })
 
+router.put("/modifypass", authVerifyToken, async (req, res, next) => {
+  try {
+    if (req.body.pass === undefined) {
+      res.statusMessage = "Password is required";
+      return res.status(401).send();
+    }
+    const { pass } = req.body;
+    const { email } = req.user;
+
+    const { rowCount: userCount } = await eventBus.publish('AdminCheckUserEmail', { email }, Date.now().toString());
+    if (userCount > 0) {
+      const hashedpass = await password.hash(pass);
+
+      const { rows: updatedUser, rowCount: updatedUserCount } = await pool.query("UPDATE mst_admin SET pass = $1, last_logged_in = $2 WHERE email = $3 RETURNING id, name, email, phone_no, status, google_sub_id, profile_pic, tenant_id, updated_at, created_at, last_logged_in", [hashedpass, (new Date()).toISOString(), email])
+
+      if (updatedUserCount > 0) {
+        // Generate JWT Token for session
+        const jwtToken = jwt.sign({ id: updatedUser[0].id, email }, process.env.JWT_SECRET, { expiresIn: "2d" });
+
+        res.statusMessage = "Login Successfull!!";
+        return res.status(200).json({ user: updatedUser[0], token: jwtToken });
+      }
+
+      res.statusMessage = "Error in updating password";
+      return res.status(400).send();
+    }
+
+    res.statusMessage = "Account doesn't exists";
+    return res.status(404).send();
+
+  } catch (error) {
+    res.statusMessage = "Internal Server error";
+    res.status(500).json({ error });
+  }
+})
+
 router.all("/", (req, res, next) => {
   res.status(200).json({ message: `Service running on ${PORT}` })
 })
