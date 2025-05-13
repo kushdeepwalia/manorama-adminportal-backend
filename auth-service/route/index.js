@@ -5,6 +5,7 @@ const authVerifyToken = require("../../middlewares/authVerifyToken/");
 const pool = require("../../db/pool");
 const password = require("../../utils/password");
 const eventBus = require("../../utils/eventBus");
+const { redisClient, storeCache, getCache } = require("../../utils/redisClient");
 
 const PORT = process.env.PORT || 5005;
 
@@ -161,6 +162,86 @@ router.put("/modifypass", authVerifyToken, async (req, res, next) => {
     res.statusMessage = "Account doesn't exists";
     return res.status(404).send();
 
+  } catch (error) {
+    res.statusMessage = "Internal Server error";
+    res.status(500).json({ error });
+  }
+})
+
+router.post("/user/send-otp", async (req, res, next) => {
+  try {
+    if (req.body.phone === undefined) {
+      res.statusMessage = "Phone Number is required";
+      return res.status(401).send();
+    }
+
+    const { phone } = req.body;
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    console.log(`OTP: ${otp}, Phone No: ${phone}`);
+
+    await storeCache(`otp:${phone}`, 1800, JSON.stringify(otp));
+
+    res.json({ message: 'OTP sent.', otp });
+
+  } catch (error) {
+    res.statusMessage = "Internal Server error";
+    res.status(500).json({ error });
+  }
+})
+
+router.post("/user/verify-otp", async (req, res, next) => {
+  try {
+    if (req.body.phone === undefined || req.body.otp === undefined) {
+      res.statusMessage = "Phone Number OR OTP is required";
+      return res.status(401).send();
+    }
+
+    const { phone, otp } = req.body;
+
+    const generatedOTP = JSON.parse(await getCache(`otp:${phone}`));
+    if (generatedOTP) {
+      if (Number(generatedOTP) !== Number(otp)) {
+        res.statusMessage = "Enter correct OTP";
+        return res.status(404).send();
+      }
+      const { rows: user, rowCount: userCount } = await pool.query("SELECT * FROM mst_user WHERE phone_no = $1", [phone]);
+
+      if (userCount === 0) {
+        res.statusMessage = "No User Registered.";
+        return res.status(204).send();
+      }
+
+      const { status } = user[0];
+
+      if (status === "approved") {
+        const jwtToken = jwt.sign({ user: user[0] }, process.env.JWT_SECRET, { expiresIn: "2d" });
+
+        res.statusMessage = "Login Successful";
+        return res.status(200).json({ token: jwtToken, status, user });
+      }
+      else {
+        res.statusMessage = `Status: ${status}`;
+        return res.status(200).send();
+      }
+    }
+
+    res.statusMessage = "Invalid OTP/Phone No";
+    res.status(404).send();
+
+  } catch (error) {
+    res.statusMessage = "Internal Server error";
+    res.status(500).json({ error });
+  }
+})
+
+router.post("/user/register", async (req, res, next) => {
+  try {
+    if (req.body.name === undefined || req.body.dob === undefined || req.body.state === undefined || req.body.district === undefined || req.body.tenant_id === undefined || req.body.phone_no === undefined) {
+      res.statusMessage = "Missing Fields";
+      return res.status(401).send();
+    }
+
+    const { name, dob, state, district, tenant_id, phone_no } = req.body;
   } catch (error) {
     res.statusMessage = "Internal Server error";
     res.status(500).json({ error });
