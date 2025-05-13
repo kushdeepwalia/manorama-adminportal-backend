@@ -242,11 +242,155 @@ router.post("/user/register", async (req, res, next) => {
     }
 
     const { name, dob, state, district, tenant_id, phone_no } = req.body;
+
+    const { rowCount: userCount } = await pool.query("SELECT * FROM mst_user WHERE phone_no = $1", [phone_no]);
+
+    if (userCount !== 0) {
+      res.statusMessage = "User already exists";
+      return res.status(409).send();
+    }
+
+    const { rowCount: newUserCount } = await pool.query("INSERT INTO mst_user(name, dob, state, district, tenant_id, phone_no) values ($1, $2, $3, $4, $5, $6) RETURNING *", [name, dob, state, district, tenant_id, phone_no]);
+
+    if (newUserCount === 0) {
+      res.statusMessage = "Error in adding user";
+      return res.status(409).send();
+    }
+
+    res.statusMessage = "Submitted for approval.";
+    res.status(201).send();
+
   } catch (error) {
     res.statusMessage = "Internal Server error";
     res.status(500).json({ error });
   }
 })
+
+router.get("/user/approvals/", authVerifyToken, async (req, res, next) => {
+  try {
+    const { email } = req.user;
+    const { rows: user, rowCount: userCount } = await eventBus.publish('AdminCheckUserEmail', { email }, Date.now().toString());
+
+    if (userCount > 0) {
+      const tenant_id = Number(user[0].tenant_id);
+
+      // Get all descendant tenant_ids (including self)
+      const { rows: tenantRows } = await pool.query(`
+        WITH RECURSIVE descendants AS (
+          SELECT tenant_id FROM mst_organization WHERE tenant_id = $1
+          UNION ALL
+          SELECT t.tenant_id FROM mst_organization t
+          INNER JOIN descendants d ON t.parent_id = d.tenant_id
+        )
+        SELECT tenant_id FROM descendants
+      `, [tenant_id]);
+
+      const tenantIds = tenantRows.map(row => row.tenant_id);
+
+      // Fetch users for all descendant tenants
+      const result = await pool.query(`SELECT * FROM mst_user WHERE tenant_id = ANY($1)`, [tenantIds]);
+
+      res.json(result.rows);
+    }
+
+    res.statusMessage = "Account doesn't exists";
+    return res.status(404).send();
+
+  } catch (error) {
+    res.statusMessage = "Internal Server error";
+    res.status(500).json({ error });
+  }
+})
+
+// PATCH /user/status/:status/:id
+router.patch('/user/status/:status/:id', authVerifyToken, async (req, res) => {
+  try {
+    if (req.params.id === undefined || req.params.status === undefined) {
+      res.statusMessage = "Invalid id or status";
+      return res.status(400).send();
+    }
+
+    const { id, status } = req.params;
+
+    const query = await pool.query("UPDATE mst_user SET status = $2 WHERE id = $1", [id, status]);
+
+    if (query.rowCount === 0) {
+      res.statusMessage = "Error in updating.";
+      return res.status(404).send();
+    }
+
+    res.statusMessage = "User " + status;
+    res.status(200).send();
+  } catch (error) {
+    res.statusMessage = "Internal Server Error";
+    res.status(500).json({ error });
+  }
+
+});
+
+router.get('/user/state-district-map', async (req, res) => {
+  const result = await pool.query(`
+    SELECT state, district
+    FROM mst_organization
+    WHERE state IS NOT NULL AND district IS NOT NULL
+  `);
+
+  const map = {};
+  result.rows.forEach(({ state, district }) => {
+    if (!map[state]) map[state] = new Set();
+    map[state].add(district);
+  });
+
+  // Convert Set to Array
+  const output = {};
+  Object.keys(map).forEach(state => {
+    output[state] = Array.from(map[state]).sort();
+  });
+
+  res.json(output);
+});
+
+router.get('/user/organization-map', async (req, res) => {
+  const { state, district } = req.query;
+
+  if (!state || !district) {
+    return res.status(400).json({ message: 'State and district are required.' });
+  }
+
+  const result = await pool.query(`
+    SELECT DISTINCT name, tenant_id
+    FROM mst_organization
+    WHERE state = $1 AND district = $2
+    ORDER BY name
+  `, [state, district]);
+
+  res.json(result.rows); // returns: [{ id: 1, name: 'ABC Org' }, ...]
+});
+
+// DELETE /user/delete/:id
+router.delete('/user/delete/:id', authVerifyToken, async (req, res) => {
+  try {
+    if (req.params.id === undefined) {
+      res.statusMessage = "Invalid id";
+      return res.status(400).send();
+    }
+
+    const { id } = req.params;
+
+    const query = await pool.query("DELETE FROM mst_user WHERE id = $1", [id]);
+
+    if (query.rowCount === 0) {
+      res.statusMessage = "Error in updating.";
+      return res.status(404).send();
+    }
+
+    res.statusMessage = "Deleted Successfully";
+    res.status(200).json({ message: 'User deleted.' });
+  } catch (error) {
+    res.statusMessage = "Internal Server Error";
+    res.status(500).json({ error });
+  }
+});
 
 router.all("/", (req, res, next) => {
   res.status(200).json({ message: `Service running on ${PORT}` })
