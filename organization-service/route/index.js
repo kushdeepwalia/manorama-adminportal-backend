@@ -9,12 +9,12 @@ const router = express.Router()
 
 router.post("/register", authVerifyToken, async (req, res, next) => {
   try {
-    if (req.body?.name === undefined || req.body?.allowed_inputs === undefined || req.body?.allowed_outputs === undefined || req.body?.color_theme === undefined || req.body?.parent_tenant_id === undefined) {
+    if (req.body?.name === undefined || req.body?.allowed_inputs === undefined || req.body?.allowed_outputs === undefined || req.body?.color_theme === undefined || req.body?.parent_tenant_id === undefined || req.body?.state === undefined || req.body?.district === undefined) {
       res.statusMessage = "Missing Fields";
       return res.status(400).send();
     }
     const { email } = req.user;
-    const { name, allowed_inputs, allowed_outputs, color_theme, parent_tenant_id } = req.body;
+    const { name, allowed_inputs, allowed_outputs, color_theme, parent_tenant_id, state, district } = req.body;
 
     const { rows: user, rowCount: userCount } = await eventBus.publish('AdminCheckUserEmail', { email }, Date.now().toString());
 
@@ -31,7 +31,7 @@ router.post("/register", authVerifyToken, async (req, res, next) => {
       if ((parentOrgCount > 0)) {
         const { level: parentLevel } = parentOrg[0];
 
-        const { rows: newOrg, rowCount: newOrgCount } = await pool.query("INSERT INTO mst_organization(name, allowed_inputs, allowed_outputs, color_theme, level, parent_tenant_id) values ($1, $2, $3, $4, $5, $6) RETURNING *", [name, allowed_inputs, allowed_outputs, color_theme, (parentLevel - 1), parent_tenant_id]);
+        const { rows: newOrg, rowCount: newOrgCount } = await pool.query("INSERT INTO mst_organization(name, allowed_inputs, allowed_outputs, color_theme, level, parent_tenant_id, state, district) values ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *", [name, allowed_inputs, allowed_outputs, color_theme, (parentLevel - 1), parent_tenant_id, state, district]);
 
         if (!(newOrgCount > 0)) {
           console.error("Error adding organization.");
@@ -74,6 +74,8 @@ router.get("/getAll", authVerifyToken, async (req, res, next) => {
           org.allowed_inputs, 
           org.allowed_outputs, 
           org.level,
+          org.state,
+          org.district,
           org.parent_tenant_id, 
           CASE 
             WHEN org.tenant_id = 1 THEN NULL
@@ -113,14 +115,14 @@ router.put("/modify/:id", authVerifyToken, async (req, res, next) => {
       return res.status(400).send();
     }
 
-    if (req.body?.name === undefined || req.body?.allowed_inputs === undefined || req.body?.allowed_outputs === undefined || req.body?.color_theme === undefined || req.body?.parent_tenant_id === undefined) {
+    if (req.body?.name === undefined || req.body?.allowed_inputs === undefined || req.body?.allowed_outputs === undefined || req.body?.color_theme === undefined || req.body?.parent_tenant_id === undefined || req.body?.state === undefined || req.body.district === undefined) {
       res.statusMessage = "Missing Fields";
       return res.status(400).send();
     }
 
     const { id } = req.params;
     const { email } = req.user;
-    const { name, allowed_inputs, allowed_outputs, color_theme, parent_tenant_id } = req.body;
+    const { name, allowed_inputs, allowed_outputs, color_theme, parent_tenant_id, state, district } = req.body;
 
     const { rows: user, rowCount: userCount } = await eventBus.publish('AdminCheckUserEmail', { email }, Date.now().toString());
 
@@ -144,7 +146,7 @@ router.put("/modify/:id", authVerifyToken, async (req, res, next) => {
       if ((parentOrgCount > 0)) {
         const { level: parentLevel } = parentOrg[0];
 
-        const { rows: modifiedOrg, rowCount: modifiedOrgCount } = await pool.query("UPDATE mst_organization SET name = $1, allowed_inputs = $2, allowed_outputs = $3, color_theme = $4, level = $5, parent_tenant_id = $6, updated_at = $8 WHERE tenant_id = $7 RETURNING *", [name, allowed_inputs, allowed_outputs, color_theme, (parentLevel - 1), parent_tenant_id, id, (new Date()).toISOString()]);
+        const { rows: modifiedOrg, rowCount: modifiedOrgCount } = await pool.query("UPDATE mst_organization SET name = $1, allowed_inputs = $2, allowed_outputs = $3, color_theme = $4, level = $5, parent_tenant_id = $6, updated_at = $8, state = $9, district = $10 WHERE tenant_id = $7 RETURNING *", [name, allowed_inputs, allowed_outputs, color_theme, (parentLevel - 1), parent_tenant_id, id, (new Date()).toISOString(), state, district]);
 
         if (!(modifiedOrgCount > 0)) {
           console.error("Error modifying organization.");
