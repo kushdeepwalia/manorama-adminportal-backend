@@ -176,10 +176,16 @@ router.post("/user/send-otp", async (req, res, next) => {
     }
 
     const { phone } = req.body;
+
+    const generatedOTP = await getCache(`otp:${phone}`);
+    if (generatedOTP) {
+      return res.json({ message: 'OTP resent.', otp: JSON.parse(JSON.parse(generatedOTP)) });
+    }
+
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
     console.log(`OTP: ${otp}, Phone No: ${phone}`);
 
-    await storeCache(`otp:${phone}`, 1800, JSON.stringify(otp));
+    await storeCache(`otp:${phone}`, 5 * 60, JSON.stringify(otp));
 
     res.json({ message: 'OTP sent.', otp });
 
@@ -198,11 +204,11 @@ router.post("/user/verify-otp", async (req, res, next) => {
 
     const { phone, otp } = req.body;
 
-    const generatedOTP = JSON.parse(await getCache(`otp:${phone}`));
+    const generatedOTP = await getCache(`otp:${phone}`);
     if (generatedOTP) {
-      if (Number(generatedOTP) !== Number(otp)) {
+      if (Number(JSON.parse(JSON.parse(generatedOTP))) !== Number(otp)) {
         res.statusMessage = "Enter correct OTP";
-        return res.status(404).send();
+        return res.status(404).json({ generatedOTP, otp });
       }
       const { rows: user, rowCount: userCount } = await pool.query("SELECT * FROM mst_user WHERE phone_no = $1", [phone]);
 
@@ -216,8 +222,8 @@ router.post("/user/verify-otp", async (req, res, next) => {
       if (status === "approved") {
         const jwtToken = jwt.sign({ user: user[0] }, process.env.JWT_SECRET, { expiresIn: "2d" });
 
-        res.statusMessage = "Login Successful";
-        return res.status(200).json({ token: jwtToken, status, user });
+        res.statusMessage = `Status: ${status}`;
+        return res.status(200).json({ token: jwtToken, user });
       }
       else {
         res.statusMessage = `Status: ${status}`;
@@ -236,21 +242,21 @@ router.post("/user/verify-otp", async (req, res, next) => {
 
 router.post("/user/register", async (req, res, next) => {
   try {
-    if (req.body.name === undefined || req.body.dob === undefined || req.body.state === undefined || req.body.district === undefined || req.body.tenant_id === undefined || req.body.phone_no === undefined) {
+    if (req.body.name === undefined || req.body.dob === undefined || req.body.state === undefined || req.body.district === undefined || req.body.tenant_id === undefined || req.body.phone === undefined) {
       res.statusMessage = "Missing Fields";
       return res.status(401).send();
     }
 
-    const { name, dob, state, district, tenant_id, phone_no } = req.body;
+    const { name, dob, state, district, tenant_id, phone } = req.body;
 
-    const { rowCount: userCount } = await pool.query("SELECT * FROM mst_user WHERE phone_no = $1", [phone_no]);
+    const { rowCount: userCount } = await pool.query("SELECT * FROM mst_user WHERE phone_no = $1", [phone]);
 
     if (userCount !== 0) {
       res.statusMessage = "User already exists";
       return res.status(409).send();
     }
 
-    const { rowCount: newUserCount } = await pool.query("INSERT INTO mst_user(name, dob, state, district, tenant_id, phone_no) values ($1, $2, $3, $4, $5, $6) RETURNING *", [name, dob, state, district, tenant_id, phone_no]);
+    const { rowCount: newUserCount } = await pool.query("INSERT INTO mst_user(name, dob, state, district, tenant_id, phone_no) values ($1, $2, $3, $4, $5, $6) RETURNING *", [name, dob, state, district, tenant_id, phone]);
 
     if (newUserCount === 0) {
       res.statusMessage = "Error in adding user";
@@ -280,7 +286,7 @@ router.get("/user/approvals/", authVerifyToken, async (req, res, next) => {
           SELECT tenant_id FROM mst_organization WHERE tenant_id = $1
           UNION ALL
           SELECT t.tenant_id FROM mst_organization t
-          INNER JOIN descendants d ON t.parent_id = d.tenant_id
+          INNER JOIN descendants d ON t.parent_tenant_id = d.tenant_id
         )
         SELECT tenant_id FROM descendants
       `, [tenant_id]);
