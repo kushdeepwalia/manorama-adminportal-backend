@@ -294,7 +294,7 @@ router.get("/user/approvals/", authVerifyToken, async (req, res, next) => {
       const tenantIds = tenantRows.map(row => row.tenant_id);
 
       // Fetch users for all descendant tenants
-      const result = await pool.query(`SELECT * FROM mst_user WHERE tenant_id = ANY($1)`, [tenantIds]);
+      const result = await pool.query(`SELECT * FROM mst_user WHERE tenant_id = ANY($1) ORDER BY created_at DESC`, [tenantIds]);
 
       res.json(result.rows);
     }
