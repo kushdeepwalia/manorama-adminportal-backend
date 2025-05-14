@@ -6,6 +6,9 @@ const pool = require("../../db/pool");
 const password = require("../../utils/password");
 const eventBus = require("../../utils/eventBus");
 const { redisClient, storeCache, getCache } = require("../../utils/redisClient");
+const fs = require("fs");
+const csv = require("fast-csv");
+const upload = require("../../utils/upload");
 
 const PORT = process.env.PORT || 5005;
 
@@ -397,6 +400,55 @@ router.delete('/user/delete/:id', authVerifyToken, async (req, res) => {
     res.status(500).json({ error });
   }
 });
+
+function validateFile(req, res, next) {
+  const file = req.file;
+  console.log(file);
+  const allowedTypes = ["text/csv", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]; // Accept CSV file types
+  const maxSize = 5 * 1024 * 1024; // 5MB
+
+  if (!file) {
+    return res.status(400).json({ error: "No file uploaded" });
+  }
+
+  if (!allowedTypes.includes(file.mimetype)) {
+    return res.status(400).json({ error: "Invalid file type. Only CSV files are allowed." });
+  }
+
+  if (file.size > maxSize) {
+    return res.status(400).json({ error: "File size exceeds the 5MB limit." });
+  }
+
+  next();
+}
+
+router.post("/user/bulk-import", authVerifyToken, upload.single("file"), validateFile, async (req, res, next) => {
+  try {
+    const filePath = req.file.path;
+    const CHUNK_SIZE = 100;
+    const records = [];
+
+    fs.createReadStream(filePath)
+      .pipe(csv.parse({ headers: true, ignoreEmpty: true }))
+      .on("error", (err) => {
+        fs.unlinkSync(filePath);
+        return res.status(400).json({ error: "Invalid CSV format", details: err.message });
+      })
+      .on("data", (row) => records.push(row))
+      .on("end", async () => {
+        return res.json(records);
+      })
+  } catch (error) {
+    res.statusMessage = "Internal Server Error";
+    res.status(500).json({ error });
+  }
+  finally {
+    // fs.unlink(filePath, (err) => {
+    //   if (err) console.error("File cleanup error:", err);
+    // });
+  }
+})
+
 
 router.all("/", (req, res, next) => {
   res.status(200).json({ message: `Service running on ${PORT}` })
