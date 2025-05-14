@@ -5,7 +5,7 @@ const cors = require('cors');
 
 app.use(cors({
   origin: '*', // or restrict to specific frontend origin
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
