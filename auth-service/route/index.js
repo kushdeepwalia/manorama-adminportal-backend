@@ -10,6 +10,7 @@ const fs = require("fs");
 const csv = require("fast-csv");
 const { format } = require("@fast-csv/format");
 const upload = require("../../utils/upload");
+const twilio = require("twilio");
 
 const PORT = process.env.PORT || 5005;
 
@@ -213,6 +214,7 @@ router.post("/user/send-otp", async (req, res, next) => {
     const generatedOTP = await getCache(`otp:${phone}`);
     if (generatedOTP) {
       try {
+        console.log("1")
         client.messages
           .create({
             body: 'Your OTP is ' + JSON.parse(JSON.parse(generatedOTP)),
@@ -220,15 +222,17 @@ router.post("/user/send-otp", async (req, res, next) => {
             to: phone,
           })
           .then(async (message) => {
+            console.log("2")
             console.log('OTP sent successfully', message.sid)
-            res.status(200).json({ message: 'OTP sent. : ' + message.sid, otp: JSON.parse(JSON.parse(generatedOTP)) });
-            return res.json({ message: 'OTP resent.', otp: JSON.parse(JSON.parse(generatedOTP)) });
+            return res.json({ message: 'OTP resent: ' + message.sid, otp: JSON.parse(JSON.parse(generatedOTP)) });
           })
           .catch((error) => {
+            console.log("3")
             console.error(error);
             return res.status(404).json({ message: error });
           });
       } catch (error) {
+        console.log("4")
         console.error('Error sending OTP:', error.message);
         return res.status(404).json({ message: error });
       }
@@ -238,6 +242,7 @@ router.post("/user/send-otp", async (req, res, next) => {
     console.log(`OTP: ${otp}, Phone No: ${phone}`);
 
     try {
+      console.log("5")
       client.messages
         .create({
           body: 'Your OTP is ' + otp,
@@ -245,20 +250,24 @@ router.post("/user/send-otp", async (req, res, next) => {
           to: phone,
         })
         .then(async (message) => {
+          console.log("6")
           console.log('OTP sent successfully', message.sid)
           await storeCache(`otp:${phone}`, 5 * 60, JSON.stringify(otp));
           res.status(200).json({ message: 'OTP sent. : ' + message.sid, otp });
         })
         .catch((error) => {
+          console.log("7")
           console.error(error);
           return res.status(404).json({ message: error });
         });
     } catch (error) {
+      console.log("8")
       console.error('Error sending OTP:', error.message);
       return false;
     }
 
   } catch (error) {
+    console.log("9", error)
     res.statusMessage = "Internal Server error";
     res.status(500).json({ error });
   }
