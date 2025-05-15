@@ -9,7 +9,10 @@ const PORT = process.env.PORT || 5001;
 const adminRoutes = require("./route");
 
 app.use(express.json());
-
+app.use((req, res, next) => {
+  res.setTimeout(10 * 60 * 1000); // 10 minutes
+  next();
+});
 app.use("/", adminRoutes)
 
 app.listen(PORT, async () => {

@@ -11,7 +11,7 @@ const userRoutes = require("./route/");
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use((req, res, next) => {
-  res.setTimeout(10 * 60 * 1000); // 5 minutes
+  res.setTimeout(10 * 60 * 1000); // 10 minutes
   next();
 });
 app.use("/", userRoutes);

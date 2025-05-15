@@ -9,7 +9,10 @@ const pool = require("../db/pool");
 const PORT = process.env.PORT || 5002;
 
 app.use(express.json());
-
+app.use((req, res, next) => {
+  res.setTimeout(10 * 60 * 1000); // 10 minutes
+  next();
+});
 app.use("/", modelRoutes);
 
 app.listen(PORT, async () => {

@@ -9,7 +9,10 @@ const projectRoutes = require("./route/");
 const pool = require("../db/pool");
 
 app.use(express.json());
-
+app.use((req, res, next) => {
+  res.setTimeout(10 * 60 * 1000); // 10 minutes
+  next();
+});
 app.use("/", projectRoutes);
 
 app.listen(PORT, async () => {

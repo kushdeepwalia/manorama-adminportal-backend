@@ -9,7 +9,10 @@ const orgRoutes = require("./route")
 const PORT = process.env.PORT || 5003;
 
 app.use(express.json());
-
+app.use((req, res, next) => {
+  res.setTimeout(10 * 60 * 1000); // 10 minutes
+  next();
+});
 app.use("/", orgRoutes);
 
 app.listen(PORT, async () => {
