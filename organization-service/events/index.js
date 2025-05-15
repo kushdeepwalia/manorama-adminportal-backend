@@ -24,6 +24,29 @@ async function orgEventSubscribers() {
 
     sendResponse(tenantIds);
   })
+
+  await eventBus.subscribe('GetAllOrganizations', async (_, sendResponse) => {
+    const query = `
+      SELECT tenant_id, name
+      FROM mst_organization
+    `;
+
+    try {
+      const res = await pool.query(query);
+
+      // reduce rows to { tenant_id: name, ... }
+      const result = res.rows.reduce((acc, row) => {
+        acc[row.name] = row.tenant_id;
+        return acc;
+      }, {});
+
+      console.log(result);
+      sendResponse(result);
+    } catch (err) {
+      console.error('Error fetching organizations:', err);
+      throw err;
+    }
+  })
 }
 
 module.exports = orgEventSubscribers;

@@ -1,4 +1,4 @@
-require("dotenv").config();
+require("dotenv").config({ path: require('path').resolve(__dirname, '../.env') });
 
 const express = require('express');
 const eventBus = require('../utils/eventBus');
@@ -8,7 +8,12 @@ const app = express();
 const PORT = process.env.PORT || 5005;
 const userRoutes = require("./route/");
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use((req, res, next) => {
+  res.setTimeout(10 * 60 * 1000); // 5 minutes
+  next();
+});
 app.use("/", userRoutes);
 
 app.listen(PORT, async () => {

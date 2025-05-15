@@ -422,33 +422,91 @@ function validateFile(req, res, next) {
   next();
 }
 
+// Helper to chunk arrays
+function chunkArray(arr, size) {
+  return Array.from({ length: Math.ceil(arr.length / size) }, (_, i) =>
+    arr.slice(i * size, i * size + size)
+  );
+}
+
 router.post("/user/bulk-import", authVerifyToken, upload.single("file"), validateFile, async (req, res, next) => {
   try {
+    console.log("New Bulk Request");
     const filePath = req.file.path;
-    const CHUNK_SIZE = 100;
+    const CHUNK_SIZE = 10;
     const records = [];
 
+    console.log("1");
     fs.createReadStream(filePath)
       .pipe(csv.parse({ headers: true, ignoreEmpty: true }))
       .on("error", (err) => {
         fs.unlinkSync(filePath);
+        console.log("2");
         return res.status(400).json({ error: "Invalid CSV format", details: err.message });
       })
       .on("data", (row) => records.push(row))
       .on("end", async () => {
-        return res.json(records);
+        console.log("3");
+        const chunks = chunkArray(records, CHUNK_SIZE);
+        const failed = [];
+
+        const response = await eventBus.publish('GetAllOrganizations', {}, Date.now().toString());
+
+        const client = await pool.connect();
+
+        try {
+          console.log("4");
+          for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+            const chunk = chunks[chunkIndex];
+
+            for (let recordIndex = 0; recordIndex < chunk.length; recordIndex++) {
+              const user = chunk[recordIndex];
+              try {
+                await client.query(
+                  "INSERT INTO mst_user (name, dob, state, district, tenant_id, phone_no, status) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                  [user.name, user.dob, user.state, user.district, response[user.organization], user.phone_no, "pending"]
+                );
+              } catch (err) {
+                failed.push({
+                  chunk: chunkIndex,
+                  recordIndex,
+                  org: response[user.organization],
+                  data: user,
+                  errorDetail: err.detail,
+                  errorMessage: err.message,
+                });
+              }
+            }
+          }
+
+          console.log("5");
+          res.status(200).json({
+            successCount: records.length - failed.length,
+            failedCount: failed.length,
+            failed,
+            response
+          });
+        }
+        catch (err) {
+          console.log("6");
+          res.status(500).json({ error: "Import failed", details: err.message });
+        }
+        finally {
+          console.log("7");
+          client.release();
+          // Clean up file
+          fs.unlink(filePath, (err) => {
+            if (err) console.error("File cleanup error:", err);
+          });
+        }
       })
-  } catch (error) {
+  }
+  catch (error) {
+    console.log("8");
     res.statusMessage = "Internal Server Error";
     res.status(500).json({ error });
   }
-  finally {
-    // fs.unlink(filePath, (err) => {
-    //   if (err) console.error("File cleanup error:", err);
-    // });
-  }
-})
-
+});
 
 router.all("/", (req, res, next) => {
   res.status(200).json({ message: `Service running on ${PORT}` })
