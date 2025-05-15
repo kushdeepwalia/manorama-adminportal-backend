@@ -8,6 +8,7 @@ const eventBus = require("../../utils/eventBus");
 const { redisClient, storeCache, getCache } = require("../../utils/redisClient");
 const fs = require("fs");
 const csv = require("fast-csv");
+const { format } = require("@fast-csv/format");
 const upload = require("../../utils/upload");
 
 const PORT = process.env.PORT || 5005;
@@ -15,6 +16,34 @@ const PORT = process.env.PORT || 5005;
 const router = express.Router();
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+router.get("/download-sample", (req, res) => {
+  res.setHeader("Content-Disposition", "attachment; filename=sample.csv");
+  res.setHeader("Content-Type", "text/csv");
+
+  const csvStream = format({ headers: true });
+  csvStream.pipe(res);
+
+  csvStream.write({
+    name: "John Doe",
+    dob: "2000-01-01",
+    state: "Kerala",
+    district: "Ernakulam",
+    organization: "Indian Institute of Technology",
+    phone_no: "9876543210"
+  });
+
+  csvStream.write({
+    name: "Jane Smith",
+    dob: "2002-05-15",
+    state: "Tamil Nadu",
+    district: "Chennai",
+    organization: "Indian Institute of Technology",
+    phone_no: "9123456789"
+  });
+
+  csvStream.end();
+});
 
 router.get("/login", async (req, res, next) => {
   let calledMethod = '';
@@ -297,7 +326,7 @@ router.get("/user/approvals/", authVerifyToken, async (req, res, next) => {
       const tenantIds = tenantRows.map(row => row.tenant_id);
 
       // Fetch users for all descendant tenants
-      const result = await pool.query(`SELECT * FROM mst_user WHERE tenant_id = ANY($1) ORDER BY created_at DESC`, [tenantIds]);
+      const result = await pool.query(`SELECT u.*, o.name as org_name FROM mst_user u LEFT JOIN mst_organization o ON o.tenant_id = u.tenant_id WHERE u.tenant_id = ANY($1) ORDER BY u.created_at DESC`, [tenantIds]);
 
       res.json(result.rows);
     }
@@ -470,7 +499,6 @@ router.post("/user/bulk-import", authVerifyToken, upload.single("file"), validat
                 failed.push({
                   chunk: chunkIndex,
                   recordIndex,
-                  org: response[user.organization],
                   data: user,
                   errorDetail: err.detail,
                   errorMessage: err.message,
@@ -484,7 +512,6 @@ router.post("/user/bulk-import", authVerifyToken, upload.single("file"), validat
             successCount: records.length - failed.length,
             failedCount: failed.length,
             failed,
-            response
           });
         }
         catch (err) {
