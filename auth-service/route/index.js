@@ -208,18 +208,55 @@ router.post("/user/send-otp", async (req, res, next) => {
     }
 
     const { phone } = req.body;
+    const client = new twilio(process.env.ACCOUNT_SID, process.env.TWILIO_ACCOUNT_TOKEN);
 
     const generatedOTP = await getCache(`otp:${phone}`);
     if (generatedOTP) {
-      return res.json({ message: 'OTP resent.', otp: JSON.parse(JSON.parse(generatedOTP)) });
+      try {
+        client.messages
+          .create({
+            body: 'Your OTP is ' + JSON.parse(JSON.parse(generatedOTP)),
+            from: '+17752597203', // trial Twilio number
+            to: phone,
+          })
+          .then(async (message) => {
+            console.log('OTP sent successfully', message.sid)
+            res.status(200).json({ message: 'OTP sent. : ' + message.sid, otp: JSON.parse(JSON.parse(generatedOTP)) });
+            return res.json({ message: 'OTP resent.', otp: JSON.parse(JSON.parse(generatedOTP)) });
+          })
+          .catch((error) => {
+            console.error(error);
+            return res.status(404).json({ message: error });
+          });
+      } catch (error) {
+        console.error('Error sending OTP:', error.message);
+        return res.status(404).json({ message: error });
+      }
     }
 
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
     console.log(`OTP: ${otp}, Phone No: ${phone}`);
 
-    await storeCache(`otp:${phone}`, 5 * 60, JSON.stringify(otp));
-
-    res.json({ message: 'OTP sent.', otp });
+    try {
+      client.messages
+        .create({
+          body: 'Your OTP is ' + otp,
+          from: '+17752597203', // trial Twilio number
+          to: phone,
+        })
+        .then(async (message) => {
+          console.log('OTP sent successfully', message.sid)
+          await storeCache(`otp:${phone}`, 5 * 60, JSON.stringify(otp));
+          res.status(200).json({ message: 'OTP sent. : ' + message.sid, otp });
+        })
+        .catch((error) => {
+          console.error(error);
+          return res.status(404).json({ message: error });
+        });
+    } catch (error) {
+      console.error('Error sending OTP:', error.message);
+      return false;
+    }
 
   } catch (error) {
     res.statusMessage = "Internal Server error";
