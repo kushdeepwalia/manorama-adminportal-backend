@@ -30,6 +30,7 @@ router.get("/download-sample", (req, res) => {
     dob: "2000-01-01",
     state: "Kerala",
     district: "Ernakulam",
+    email: "abc@gmail.com",
     organization: "Indian Institute of Technology",
     phone_no: "9876543210"
   });
@@ -39,6 +40,7 @@ router.get("/download-sample", (req, res) => {
     dob: "2002-05-15",
     state: "Tamil Nadu",
     district: "Chennai",
+    email: "abc@gmail.com",
     organization: "Indian Institute of Technology",
     phone_no: "9123456789"
   });
@@ -74,7 +76,10 @@ router.get("/login", async (req, res, next) => {
 
 router.post("/login", async (req, res, next) => {
   try {
-
+    if (req.body === undefined) {
+      res.statusMessage = "Missing request body";
+      return res.status(401).send();
+    }
     if (req.body.method === undefined) {
       res.statusMessage = "Method is required";
       return res.status(401).send();
@@ -167,6 +172,10 @@ router.post("/login", async (req, res, next) => {
 
 router.put("/modifypass", authVerifyToken, async (req, res, next) => {
   try {
+    if (req.body === undefined) {
+      res.statusMessage = "Missing request body";
+      return res.status(401).send();
+    }
     if (req.body.pass === undefined) {
       res.statusMessage = "Password is required";
       return res.status(401).send();
@@ -203,6 +212,10 @@ router.put("/modifypass", authVerifyToken, async (req, res, next) => {
 
 router.post("/user/send-otp", async (req, res, next) => {
   try {
+    if (req.body === undefined) {
+      res.statusMessage = "Missing request body";
+      return res.status(401).send();
+    }
     if (req.body.phone === undefined) {
       res.statusMessage = "Phone Number is required";
       return res.status(401).send();
@@ -275,6 +288,10 @@ router.post("/user/send-otp", async (req, res, next) => {
 
 router.post("/user/verify-otp", async (req, res, next) => {
   try {
+    if (req.body === undefined) {
+      res.statusMessage = "Missing request body";
+      return res.status(401).send();
+    }
     if (req.body.phone === undefined || req.body.otp === undefined) {
       res.statusMessage = "Phone Number OR OTP is required";
       return res.status(401).send();
@@ -318,23 +335,100 @@ router.post("/user/verify-otp", async (req, res, next) => {
   }
 })
 
+router.post("/user/verifytoken", async (req, res, next) => {
+  try {
+    console.log(req.body);
+    if (req.body === undefined) {
+      res.statusMessage = "Missing request body";
+      return res.status(401).send();
+    }
+    if (req.body.verification_method === undefined || req.body.verification_token === undefined) {
+      console.log(2)
+      res.statusMessage = "Missing fields";
+      return res.status(401).send();
+    }
+
+    console.log(3)
+    const { verification_method: method, verification_token: token } = req.body;
+
+    if (method === "phone") {
+      console.log(4)
+      const msg91Res = await fetch("https://control.msg91.com/api/v5/widget/verifyAccessToken", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({
+          "authkey": "452060A3rDwlTJ1V2682b0303P1",
+          "access-token": token
+        }),
+      });
+
+      if (!msg91Res.ok) {
+        const errText = await msg91Res.text(); // Capture error response text
+        console.error("MSG91 Error Response:", errText);
+        return res.status(400).json({ error: "Failed to verify token with MSG91", details: errText });
+      }
+
+      const data = await msg91Res.json();
+      res.statusMessage = "Verified Response";
+      return res.status(200).json({ data });
+    }
+    if (method === "email") {
+      console.log(40)
+      const msg91Res = await fetch("https://on3arqeece.execute-api.ap-south-1.amazonaws.com/dev/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({
+          "action": "verify-token",
+          "verifyToken": token
+        }),
+      });
+
+      if (!msg91Res.ok) {
+        const errText = await msg91Res.text(); // Capture error response text
+        console.error("MSG91 Error Response:", errText);
+        return res.status(400).json({ error: "Failed to verify token with MSG91", details: errText });
+      }
+
+      const data = await msg91Res.json();
+      res.statusMessage = "Verified Response";
+      return res.status(200).json(data);
+    }
+    res.statusMessage = "Invalid Method";
+    return res.status(400).send();
+  } catch (error) {
+    console.error("Error verifying token:", error, req.body); // 🔍 Log for debugging
+    res.statusMessage = "Internal Server Error";
+    res.status(500).json({ error: error.message || "Something went wrong" });
+  }
+})
+
 router.post("/user/register", async (req, res, next) => {
   try {
-    if (req.body.name === undefined || req.body.dob === undefined || req.body.state === undefined || req.body.district === undefined || req.body.tenant_id === undefined || req.body.phone === undefined) {
+    if (req.body === undefined) {
+      res.statusMessage = "Missing request body";
+      return res.status(401).send();
+    }
+    if (req.body.name === undefined || req.body.email === undefined || req.body.dob === undefined || req.body.state === undefined || req.body.district === undefined || req.body.tenant_id === undefined || req.body.phone === undefined) {
       res.statusMessage = "Missing Fields";
       return res.status(401).send();
     }
 
-    const { name, dob, state, district, tenant_id, phone } = req.body;
+    const { name, dob, state, district, tenant_id, phone, email } = req.body;
 
-    const { rowCount: userCount } = await pool.query("SELECT * FROM mst_user WHERE phone_no = $1", [phone]);
+    const { rowCount: userCount } = await pool.query("SELECT * FROM mst_user WHERE phone_no = $1 OR email = $2", [phone, email]);
 
     if (userCount !== 0) {
       res.statusMessage = "User already exists";
       return res.status(409).send();
     }
 
-    const { rowCount: newUserCount } = await pool.query("INSERT INTO mst_user(name, dob, state, district, tenant_id, phone_no) values ($1, $2, $3, $4, $5, $6) RETURNING *", [name, dob, state, district, tenant_id, phone]);
+    const { rowCount: newUserCount } = await pool.query("INSERT INTO mst_user(name, dob, state, district, tenant_id, phone_no, email) values ($1, $2, $3, $4, $5, $6, $7) RETURNING *", [name, dob, state, district, tenant_id, phone, email]);
 
     if (newUserCount === 0) {
       res.statusMessage = "Error in adding user";
@@ -538,8 +632,8 @@ router.post("/user/bulk-import", authVerifyToken, upload.single("file"), validat
               const user = chunk[recordIndex];
               try {
                 await client.query(
-                  "INSERT INTO mst_user (name, dob, state, district, tenant_id, phone_no, status) VALUES ($1, $2, $3, $4, $5, $6, $7)",
-                  [user.name, user.dob, user.state, user.district, response[user.organization], user.phone_no, "pending"]
+                  "INSERT INTO mst_user (name, dob, state, district, tenant_id, phone_no, status, email) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+                  [user.name, user.dob, user.state, user.district, response[user.organization], user.phone_no, "pending", user.email]
                 );
               } catch (err) {
                 failed.push({
