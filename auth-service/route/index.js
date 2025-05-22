@@ -372,8 +372,37 @@ router.post("/user/verifytoken", async (req, res, next) => {
       }
 
       const data = await msg91Res.json();
-      res.statusMessage = "Verified Response";
-      return res.status(200).json({ data });
+      if (data.type && data.type === "success") {
+        const phone = data.message;
+        console.log(phone);
+        const { rows: user, rowCount: userCount } = await pool.query("SELECT * FROM mst_user WHERE phone_no = $1", [phone]);
+
+        if (userCount !== 0) {
+          const { status } = user[0];
+
+          if (status === "approved") {
+            const jwtToken = jwt.sign({ user: user[0] }, process.env.JWT_SECRET, { expiresIn: "2d" });
+
+            res.statusMessage = `Status: ${status}`;
+            return res.status(200).json({ token: jwtToken, user });
+          }
+          else {
+            res.statusMessage = `Status: ${status}`;
+            return res.status(200).send();
+          }
+        }
+        else {
+          res.statusMessage = "User not registered";
+          return res.status(200).json({ phone, method: "phone" });
+        }
+      }
+      else if (data.code && Number(data.code) === 702) {
+        res.statusMessage = data.message;
+        return res.status(400).send()
+      }
+      else {
+        throw new Error("No Condition Matched. Bad Attempt.")
+      }
     }
     if (method === "email") {
       console.log(40)
@@ -396,8 +425,35 @@ router.post("/user/verifytoken", async (req, res, next) => {
       }
 
       const data = await msg91Res.json();
-      res.statusMessage = "Verified Response";
-      return res.status(200).json(data);
+      if (data.message && data.message === "Token Verified") {
+        const { data: responseData } = data;
+        const { email } = responseData
+        console.log(email);
+        const { rows: user, rowCount: userCount } = await pool.query("SELECT * FROM mst_user WHERE email = $1", [email]);
+
+        if (userCount !== 0) {
+          const { status } = user[0];
+
+          if (status === "approved") {
+            const jwtToken = jwt.sign({ user: user[0] }, process.env.JWT_SECRET, { expiresIn: "2d" });
+
+            res.statusMessage = `Status: ${status}`;
+            return res.status(200).json({ token: jwtToken, user });
+          }
+          else {
+            res.statusMessage = `Status: ${status}`;
+            return res.status(200).send();
+          }
+        }
+        else {
+          res.statusMessage = "User not registered";
+          return res.status(200).json({ email, method: "email" });
+        }
+      }
+      else {
+        console.log(data)
+        throw new Error("No Condition Matched. Bad Attempt.")
+      }
     }
     res.statusMessage = "Invalid Method";
     return res.status(400).send();
